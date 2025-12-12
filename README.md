@@ -1,659 +1,169 @@
-# CHECKMATE v0.2
+# Checkmate Live API
 
-A powerful multi-gateway card checker with built-in sites and custom site support.
+Self-hosted FastAPI service providing **Live Test Mode** payment gateways for:
 
-```
-░▄▀▀░█▄█▒██▀░▄▀▀░█▄▀░█▄▒▄█▒▄▀▄░▀█▀▒██▀
-░▀▄▄▒█▒█░█▄▄░▀▄▄░█▒█░█▒▀▒█░█▀█░▒█▒░█▄▄
-         @isnotsin
-```
+- Stripe (Auth + Charge)
+- Braintree (B3) Charge
+- PayPal Commerce Platform (PPCP) Charge
+
+This API is designed to be used by the `reductionfear/ch3ckm8` client, which will call:
+
+- `GET /stripe_live_test`
+- `GET /stripe_charge_live_test`
+- `GET /b3_live_test`
+- `GET /ppcp_live_test`
+
+Each endpoint performs a **live** (non-sandbox) transaction using your own payment credentials, with small amounts and optional auto-refund/void (you can enable this as needed).
+
+> WARNING: These endpoints hit real Stripe/Braintree/PPCP environments. Use small amounts, your own merchant accounts, and cards you control.
 
 ---
 
-## LIVE TEST MODE
+## Quick start
 
-**⚠️ WARNING: LIVE TEST MODE PERFORMS REAL TRANSACTIONS ⚠️**
+### 1. Install dependencies
 
-Live Test Mode allows you to test payment gateway integrations using **real transactions** against your own Stripe, Braintree, or PayPal Commerce Platform accounts. This mode is designed for testing purposes with:
-
-- **Real card charges** (use low amounts like $1.00)
-- **Your own merchant accounts only**
-- **Auto-void/refund capabilities** (if implemented on your API server)
-- **Careful usage required** to avoid unintended charges
-
-### Live Test Gateway Options
-
-The checker now includes four Live Test gateways accessible through the gateway selection menu:
-
-| Menu Option                          | Logical Gateway            | API Endpoint                    | Description                           |
-|--------------------------------------|----------------------------|---------------------------------|---------------------------------------|
-| `[6] STRIPE AUTH (LIVE TEST)`       | `stripe_live_test`         | `GET /stripe_live_test`         | Stripe auth with real transactions    |
-| `[7] STRIPE CHARGE (LIVE TEST)`     | `stripe_charge_live_test`  | `GET /stripe_charge_live_test`  | Stripe charge with real transactions  |
-| `[8] PPCP LIVE TEST`                | `ppcp_live_test`           | `GET /ppcp_live_test`           | PayPal Commerce Platform live test    |
-| `[9] B3 LIVE TEST`                  | `b3_live_test`             | `GET /b3_live_test`             | Braintree live test                   |
-
-### Confirmation Flow
-
-When you select a Live Test gateway, the checker will display a confirmation prompt to prevent accidental real transactions:
-
-```
-[!] YOU SELECTED A LIVE TEST GATEWAY
-[!] REAL TRANSACTIONS WILL BE ATTEMPTED (WITH AUTO-VOID/REFUND IF IMPLEMENTED)
-
-TYPE 'LIVE' TO CONFIRM: 
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-- Type `LIVE` (case-insensitive: 'live', 'Live', 'LIVE' all work) to proceed with the live test
-- Any other input will cancel the operation and return to the main menu
+### 2. Configure environment
 
-### Built-in Site Codes
+Copy `.env.example` to `.env` and fill in your values:
 
-Live Test gateways use separate built-in site codes to maintain different rotation pools from sandbox/test environments:
-
-| Code              | Gateway(s)                          | Description                             |
-|-------------------|-------------------------------------|-----------------------------------------|
-| `SIN-STRIPE`      | Stripe Auth/Charge (sandbox/test)   | Test Stripe rotations                   |
-| `SIN-STRIPE-LIVE` | Stripe Auth/Charge (Live Test)      | Live Stripe test sites                  |
-| `SIN-PPCP`        | PPCP (sandbox/test)                 | Test PPCP rotations                     |
-| `SIN-PPCP-LIVE`   | PPCP (Live Test)                    | Live PPCP test sites                    |
-| `SIN-B3`          | B3 Auth/Charge (sandbox/test)       | Test Braintree rotations                |
-| `SIN-B3-LIVE`     | B3 (Live Test)                      | Live Braintree test sites               |
-
-These codes are automatically used when selecting "Built-in Sites" mode for the respective gateway.
-
-### API Server Configuration
-
-Live Test Mode requires a self-hosted FastAPI server implementing the live test endpoints. Configure your API server:
-
-```
-Main Menu > [3] CONFIGURE SERVER
-Enter API base URL: http://localhost:8000
+```bash
+cp .env.example .env
 ```
 
-The default configuration points to `http://localhost:8000` for local development. You can change this to your own server that implements:
+Edit `.env`:
 
-- `GET /stripe_live_test` - Stripe auth live test
-- `GET /stripe_charge_live_test` - Stripe charge live test  
-- `GET /ppcp_live_test` - PPCP live test
-- `GET /b3_live_test` - Braintree live test
+- `LIVE_TEST_KEY` – API key that `ch3ckm8` will send as `?key=...`
+- `STRIPE_LIVE_SECRET_KEY` – Stripe live (or live-test) secret key.
+- `BT_LIVE_*` – Braintree live merchant credentials.
+- `PAYPAL_CLIENT_ID_LIVE` / `PAYPAL_CLIENT_SECRET_LIVE` – PPCP live app credentials.
 
-### Example Live Test Response
+You can also adjust the live site pools via:
 
-When a live test succeeds, you'll see responses like:
+- `STRIPE_LIVE_SITES`
+- `BRAINTREE_LIVE_SITES`
+- `PPCP_LIVE_SITES`
 
+These are used when `site=SIN-STRIPE-LIVE`, `SIN-B3-LIVE`, `SIN-PPCP-LIVE`.
+
+### 3. Run the server
+
+```bash
+uvicorn app.main:app --reload --port 8000
 ```
-09:12:22 : [S] 4532xxxxxxxx0366|12|25|123 | CHARGED - PAYMENT SUCCESS | 203.0.113.45 | STRIPE_CHARGE_LIVE_TEST | SIN-STRIPE-LIVE
-```
 
-Response JSON structure from the API:
+The API will be available at `http://localhost:8000`.
+
+### 4. Point `ch3ckm8` to this API
+
+In `reductionfear/ch3ckm8`:
+
+1. Set `api_base` to `http://localhost:8000` (or your deployed URL).
+2. Set `api_key` to the same value as `LIVE_TEST_KEY` in `.env`.
+3. Use the **Live Test** gateways:
+
+   - `STRIPE AUTH (LIVE TEST)` → `/stripe_live_test`
+   - `STRIPE CHARGE (LIVE TEST)` → `/stripe_charge_live_test`
+   - `PPCP LIVE TEST` → `/ppcp_live_test`
+   - `B3 LIVE TEST` → `/b3_live_test`
+
+4. When prompted, type `LIVE` to confirm (as implemented in `checker.py`).
+
+---
+
+## Endpoints
+
+### `GET /stripe_live_test`
+
+Stripe auth-only live test:
+
+- Query params:
+  - `site` – either a domain or `SIN-STRIPE-LIVE`.
+  - `cards` – `CC|MM|YY|CVV`.
+  - `key` – must match `LIVE_TEST_KEY`.
+  - `proxy` – optional, ignored for now.
+- Behavior:
+  - Creates a PaymentIntent with `capture_method="manual"` and small fixed amount (1.00 USD).
+  - Maps the PaymentIntent status to `APPROVED`, `DEAD`, `LIVE`, or `ERROR`.
+
+### `GET /stripe_charge_live_test`
+
+Stripe charge live test:
+
+- Same params as `/stripe_live_test`.
+- Behavior:
+  - Creates a PaymentIntent with `capture_method="automatic"`.
+  - Maps `succeeded` to `CHARGED`, others accordingly.
+  - Optional place to add auto-refund of successful charges.
+
+### `GET /b3_live_test`
+
+Braintree live test:
+
+- Same params.
+- Behavior:
+  - Calls `transaction.sale` with amount `1.00` and `submit_for_settlement=True`.
+  - Maps Braintree result to `CHARGED`, `APPROVED`, `DEAD`, or `ERROR`.
+
+### `GET /ppcp_live_test`
+
+PPCP (PayPal Commerce Platform) live test:
+
+- Same params.
+- Behavior:
+  - Fetches OAuth token from `https://api-m.paypal.com/v1/oauth2/token`.
+  - Creates an order via `/v2/checkout/orders` with `intent="CAPTURE"` and card funding source.
+  - Maps PPCP status to `CHARGED`, `APPROVED`, `LIVE`, or `ERROR`.
+
+---
+
+## Response shape
+
+All gateways return the same JSON shape, e.g.:
+
 ```json
 {
   "status": "CHARGED",
   "code": "charged",
   "message": "Payment successful",
-  "receipt_url": "https://dashboard.stripe.com/receipts/...",
+  "receipt_url": null,
   "vbv_status": null,
   "bin_info": null,
   "site_info": {
-    "site": "SIN-STRIPE-LIVE",
-    "proxy_ip": "203.0.113.45",
-    "product_id": "prod_test123",
+    "site": "stripe-live-test1.yourdomain.tld",
+    "proxy_ip": "N/A",
+    "product_id": null,
     "charged_amount": "1.00 USD",
-    "currency": "USD"
+    "currency": "USD",
+    "stripe_pk": null,
+    "stripe_pm_id": null,
+    "checkout_nonce": null
   }
 }
 ```
 
-### Best Practices for Live Testing
+The `ch3ckm8` client only requires:
 
-1. **Use Low Amounts**: Test with $1.00 or less to minimize costs
-2. **Own Accounts Only**: Never test against merchant accounts you don't own
-3. **Implement Auto-Refund**: Your API server should automatically void/refund test charges
-4. **Monitor Closely**: Watch for unexpected charges and refund immediately
-5. **Test Cards**: Use test cards when possible; live mode should be for integration validation only
-6. **Custom Sites**: Add only your own sites to the custom site lists for live gateways
-
-### Security Considerations
-
-- **API Key Security**: Keep your API key secure - it controls access to live transactions
-- **Proxy Usage**: Consider using proxies to protect your testing infrastructure
-- **Rate Limiting**: Implement rate limits on your API server to prevent abuse
-- **Logging**: Ensure proper logging of all live transactions for audit purposes
-- **Refund Policy**: Implement automatic refunds within your API server for all test transactions
-
-### Site File Management
-
-Each live gateway maintains its own custom site file:
-
-- `sites/stripe_live_test.txt` - Custom sites for Stripe Auth Live Test
-- `sites/stripe_charge_live_test.txt` - Custom sites for Stripe Charge Live Test
-- `sites/ppcp_live_test.txt` - Custom sites for PPCP Live Test
-- `sites/b3_live_test.txt` - Custom sites for B3 Live Test
-
-Add sites via:
-```
-Main Menu > [4] CONFIGURE SITES
-Select the appropriate live test gateway
-Add sites manually or from a file
-```
+- `status`
+- `code`
+- `message`
+- `site_info.proxy_ip` (will display `N/A` if not used).
 
 ---
 
-## FEATURES
-
-### Multi-Gateway Support
-- **Stripe Auth** - Card authorization without charge
-- **Stripe Charge** - Full checkout flow with actual charge
-- **PPCP** - PayPal Commerce Platform integration
-- **B3 Auth** - Braintree card authorization
-- **B3 Charge** - Braintree full checkout with charge
-
-### Dual Site Mode
-- **Built-in Sites** - Use `SIN-STRIPE`, `SIN-PPCP`, `SIN-B3` for automatic server-side rotation
-- **Custom Sites** - Manage your own site lists with independent files per gateway
-
-### Performance
-- Multi-threaded checking (5 threads default)
-- Real-time progress tracking
-- Live statistics display: S (Success) | L (Live) | D (Dead) | I (Invalid)
-- Automatic card extraction from any format
-
-### Privacy & Security
-- Site URLs hidden in logs (displays as SITE 1, SITE 2, etc.)
-- Secure API key management with expiry validation
-- Full proxy support for anonymity
-- Telegram forwarder for instant notifications
-
-### Smart Results
-- Color-coded terminal output
-- Auto-save results by category (approved/charged/live/ccn)
-- Detailed summary statistics
-- Timestamped result files
-
-### Easy Configuration
-- Simple menu-driven interface
-- API key validation and expiry checking
-- Custom server support
-- Per-gateway site management
-- Proxy enable/disable toggle
-
----
-
-## PRICING
-
-### API Key Plans
-
-| Plan | Duration | Price |
-|------|----------|-------|
-| Standard Key | 7 days | $10 |
-| Private API | 30 days | $15 |
-
-### Standard Key (7 days - $10)
-- Full access to all 5 gateways
-- Stripe Auth & Charge
-- PPCP (PayPal Commerce Platform)
-- Braintree Auth & Charge
-- BIN checker included
-- Proxy parameter support
-- Built-in site rotation
-- 100 requests per minute
-
-### Private API (30 days - $15)
-- Dedicated API instance
-- All standard features included
-- Higher rate limits (200 requests/minute)
-- Priority support
-- Not listed on public status page
-- Custom integrations available
-- Perfect for building your own tools
-
----
-
-## AVAILABLE GATEWAYS
-
-### Stripe
-- `/stripe` - Card authorization (no charge)
-- `/stripe_charge` - Full checkout with charge attempt
-
-### PayPal Commerce Platform
-- `/ppcp` - PPCP card payment processing
-
-### Braintree
-- `/b3` - Card authorization (no charge)
-- `/b3charge` - Full checkout with charge attempt
-
-### Additional Tools
-- `/bin` - BIN information lookup (no authentication required)
-
----
-
-## INSTALLATION
-
-```bash
-git clone https://github.com/isnotsin/checkmate.git
-cd checkmate
-python3 checker.py
-```
-
-The script will automatically install required dependencies (requests).
-
-No manual pip install needed - dependencies are handled on first run.
-
----
-
-## QUICK START
-
-### 1. Configure API Key
-```
-Main Menu > [2] CONFIGURE API KEY
-Enter your API key when prompted
-```
-
-The tool will validate your key and show expiry information.
-
-### 2. Add Custom Sites (Optional)
-```
-Main Menu > [4] CONFIGURE SITES
-Select gateway (Stripe Auth/Charge, PPCP, B3 Auth/Charge)
-Choose: Add manually or import from TXT file
-```
-
-Each gateway has its own independent site list:
-- `sites/stripe.txt` - For Stripe Auth
-- `sites/stripe_charge.txt` - For Stripe Charge
-- `sites/ppcp.txt` - For PPCP
-- `sites/b3.txt` - For B3 Auth
-- `sites/b3charge.txt` - For B3 Charge
-
-### 3. Configure Proxy (Optional)
-```
-Main Menu > [5] CONFIGURE PROXY
-Set proxy URL: http://user:pass@host:port
-Enable/disable as needed
-```
-
-### 4. Configure Telegram Forwarder (Optional)
-```
-Main Menu > [6] CONFIGURE FORWARDER
-Set bot token and chat ID
-Receive instant notifications for successful checks
-```
-
-### 5. Start Checking
-```
-Main Menu > [1] START CHECKER
-Choose gateway (1-5)
-Select site mode (Built-in or Custom)
-Enter card file paths (comma separated)
-```
-
----
-
-## FILE STRUCTURE
-
-```
-checkmate/
-├── checker.py              # Main script
-├── checker_config.json     # Auto-generated configuration
-├── sites/                  # Custom site lists (auto-created)
-│   ├── stripe.txt
-│   ├── stripe_charge.txt
-│   ├── ppcp.txt
-│   ├── b3.txt
-│   └── b3charge.txt
-└── results/                # Auto-saved results (auto-created)
-    ├── approved_YYYYMMDD_HHMMSS.txt
-    ├── charged_YYYYMMDD_HHMMSS.txt
-    ├── live_YYYYMMDD_HHMMSS.txt
-    └── ccn_YYYYMMDD_HHMMSS.txt
-```
-
----
-
-## CARD FILE FORMAT
-
-The tool automatically extracts cards from various formats:
-
-```
-4532015112830366|12|2025|123
-4532015112830366 12 2025 123
-4532015112830366/12/2025/123
-4532015112830366 12/25 123
-Card: 4532015112830366, Exp: 12/2025, CVV: 123
-```
-
-Any format works - the tool intelligently parses card data.
-
----
-
-## OUTPUT EXAMPLE
-
-```
-09:12:22 : [S] 4602xxxxxxxx1681|04|30|458 | CHARGED - PAYMENT SUCCESS | 203.0.113.45 | STRIPE_CHARGE | SIN-STRIPE
-09:12:23 : [L] 5234xxxxxxxx9012|12|28|123 | INSUFFICIENT_FUNDS - INSUFFICIENT FUNDS | 203.0.113.46 | PPCP | SITE 1
-09:12:24 : [L] 4111xxxxxxxx1111|01|25|999 | INCORRECT_CVC - SECURITY CODE INVALID | 203.0.113.47 | B3CHARGE | SITE 2
-09:12:25 : [D] 4000xxxxxxxx0002|06|26|456 | DECLINED - CARD DECLINED | 203.0.113.48 | B3 | SIN-B3
-
-PROGRESS: 226/226 | S: 18 | L: 47 | D: 157 | I: 4
-
-==================================================
-CHECK SUMMARY
-==================================================
-TOTAL CHECKED: 226
-APPROVED: 12
-CHARGED: 6
-CCN MATCHED: 28
-LIVE: 19
-DEAD: 157
-INVALID/ERROR: 4
-==================================================
-
-[+] SAVED TO results/approved_20250115_091225.txt
-[+] SAVED TO results/charged_20250115_091225.txt
-[+] SAVED TO results/ccn_20250115_091225.txt
-[+] SAVED TO results/live_20250115_091225.txt
-```
-
----
-
-## STATUS CODES
-
-### Card Status
-| Status | Symbol | Description |
-|--------|--------|-------------|
-| APPROVED | S | Card authorized successfully (auth gateways) |
-| CHARGED | S | Payment completed (charge gateways) |
-| CCN MATCHED | L | Card valid but declined (CVV error, insufficient funds) |
-| LIVE | L | Card active but declined by processor |
-| DEAD | D | Card declined or invalid |
-| ERROR | I | Technical error or invalid format |
-
-### Common Response Codes
-- `charged` - Payment successful
-- `succeeded` - Authorization successful
-- `insufficient_funds` - Card has no funds
-- `incorrect_cvc` - Wrong CVV code
-- `card_declined` - Generic decline
-- `expired_card` - Card expired
-- `invalid_number` - Invalid card number
-
----
-
-## CONFIGURATION
-
-### API Key Setup
-```json
-{
-  "api_key": "ABC123",
-  "api_base": "http://localhost:8000",
-  "bot_token": "",
-  "chat_id": "",
-  "proxy": "",
-  "proxy_enabled": false
-}
-```
-
-Configuration is stored in `checker_config.json` and persists between sessions.
-
-### Custom Server
-Configure your self-hosted API server or use a private API instance:
-```
-Main Menu > [3] CONFIGURE SERVER
-Enter your custom API base URL
-Example: http://localhost:8000 or https://your-api-server.com
-```
-
-The default API base is `http://localhost:8000` which should be changed to point to your self-hosted FastAPI server implementing the live test endpoints.
-
----
-
-## PROXY CONFIGURATION
-
-### Supported Formats
-```
-http://host:port
-http://user:pass@host:port
-https://host:port
-https://user:pass@host:port
-```
-
-### Usage
-1. Configure proxy via menu option [5]
-2. Enable/disable without removing proxy URL
-3. Proxy IP will be shown in check results
-4. Used for all gateway requests
-
----
-
-## TELEGRAM FORWARDER
-
-### Setup
-1. Create a Telegram bot via @BotFather
-2. Get your bot token
-3. Get your chat ID (use @userinfobot)
-4. Configure in menu option [6]
-
-### Features
-- Instant notifications for successful checks
-- Shows card details, status, and message
-- Only sends for: APPROVED, CHARGED, CCN MATCHED, LIVE
-- Does not spam for dead cards or errors
-
----
-
-## SITE MANAGEMENT
-
-### Built-in Sites
-Use the following codes for automatic server-side rotation:
-- `SIN-STRIPE` - Stripe gateways
-- `SIN-PPCP` - PPCP gateway
-- `SIN-B3` - Braintree gateways
-
-Built-in sites are maintained server-side and regularly updated.
-
-### Custom Sites
-Each gateway maintains its own independent site list:
-
-**Adding Sites Manually:**
-```
-Main Menu > [4] CONFIGURE SITES
-Select gateway
-Choose [1] ADD SITE MANUALLY
-Enter domain: shop.example.com
-```
-
-**Importing from File:**
-```
-Main Menu > [4] CONFIGURE SITES
-Select gateway
-Choose [2] ADD SITES FROM TXT FILE
-Enter file path: /path/to/sites.txt
-```
-
-**Site Format:**
-```
-shop.example.com
-store.website.com
-https://another-shop.com
-www.example-store.net
-```
-
-URLs are automatically cleaned (http/https and www removed).
-
----
-
-## BEST PRACTICES
-
-### For Best Results
-1. Use proxies to avoid IP blocks
-2. Keep thread count at 5 (default) for stability
-3. Use built-in sites for convenience
-4. Add custom sites for specific targets
-5. Enable Telegram forwarder for real-time monitoring
-
-### Site Management Tips
-- Test sites before adding to your list
-- Remove dead/offline sites regularly
-- Use different sites for different gateways
-- Built-in sites are pre-tested and working
-
-### Card File Tips
-- One card per line
-- Any format is accepted (tool auto-extracts)
-- Remove duplicates before checking
-- Use comma-separated files for bulk checking
-
----
-
-## TROUBLESHOOTING
-
-### API Key Issues
-```
-[!] API KEY EXPIRED OR INVALID
-```
-**Solution:** Configure new API key via menu option [2]
-
-### No Cards Loaded
-```
-[-] NO CARDS LOADED
-```
-**Solution:** Check file path and format. Ensure cards are in format: CC|MM|YY|CVV
-
-### Connection Errors
-```
-ERROR - CONNECTION ERROR
-```
-**Solution:** Check internet connection, try with proxy, or use different site
-
-### Site Unreachable
-```
-ERROR - SITE_UNREACHABLE
-```
-**Solution:** Site may be down. Use built-in sites or try different custom site
-
-### Timeout Errors
-```
-ERROR - TIMEOUT
-```
-**Solution:** Site is slow or overloaded. Enable proxy or use different site
-
----
-
-## CONTACT & SUPPORT
-
-**Developer:** @isnotsin
-
-**Telegram:** [@isnotsin](https://t.me/isnotsin)
-
-**Website:** https://isnotsin.com
-
-**API Status:** https://status.isnotsin.com
-
-**API Docs:** https://api.isnotsin.com
-
-### Purchase API Keys
-Contact via Telegram for:
-- Standard Keys (7 days - $10)
-- Private API (30 days - $15)
-
-### Payment Methods
-- Cryptocurrency (USDT, BTC, ETH)
-- PayPal
-- Other methods available on request
-
-### Support Response Time
-- API key purchases: Within 24 hours
-- Technical support: Within 48 hours
-- General inquiries: Within 72 hours
-
----
-
-## FREQUENTLY ASKED QUESTIONS
-
-**Q: What's the difference between AUTH and CHARGE gateways?**
-
-A: AUTH gateways only authorize cards without charging. CHARGE gateways attempt actual payment transactions.
-
-**Q: Can I use multiple proxies?**
-
-A: Currently one proxy at a time. You can change it anytime via the configuration menu.
-
-**Q: How accurate are the results?**
-
-A: Results depend on site quality and card validity. Built-in sites are tested regularly for accuracy.
-
-**Q: What does CCN MATCHED mean?**
-
-A: Card is valid and active, but declined for other reasons (wrong CVV, insufficient funds, etc.)
-
-**Q: Can I check multiple card files at once?**
-
-A: Yes, enter file paths separated by commas: `cards1.txt, cards2.txt, cards3.txt`
-
-**Q: Are my checked cards logged?**
-
-A: No. Cards are only saved locally in your results folder. Nothing is sent to our servers except API requests.
-
-**Q: Can I get a refund?**
-
-A: No refunds for API keys. Test with built-in sites before purchasing.
-
-**Q: How do I add more threads?**
-
-A: Currently fixed at 5 threads for stability. Higher thread counts may be added in future versions.
-
----
-
-## CHANGELOG
-
-### Version 0.2 (Current)
-- Added Stripe Charge gateway
-- Added B3 Charge gateway
-- Separated site files per gateway (5 independent lists)
-- Improved gateway selection menu
-- Updated pricing information
-- Enhanced site management
-- Better error handling
-- Updated documentation
-
-### Version 0.1
-- Initial release
-- 3 gateways (Stripe, PPCP, B3)
-- Built-in site support
-- Custom site management
-- Multi-threading
-- Telegram forwarder
-- Proxy support
-
----
-
-## LEGAL DISCLAIMER
-
-This tool is provided for educational and testing purposes only. Users are responsible for:
-
-1. Obtaining proper authorization before testing any cards
-2. Compliance with all applicable laws and regulations
-3. Ensuring legitimate use of the software
-4. Understanding that unauthorized card testing is illegal
-
-The developer is not responsible for any misuse of this software. Use at your own risk.
-
-By using this tool, you agree to:
-- Use it only for legitimate testing purposes
-- Comply with all local and international laws
-- Accept full responsibility for your actions
-- Not hold the developer liable for any consequences
-
----
-
-## LICENSE
-
-Copyright 2025 @isnotsin - All Rights Reserved
-
-This software is proprietary. Unauthorized copying, modification, distribution, or use of this software is strictly prohibited without explicit written permission from the developer.
-
----
-
-**Made by sinno$ | @isnotsin**
-
-**For professional card testing and gateway integration**
+## Safety recommendations
+
+- Use **small test amounts** (1.00 or equivalent).
+- Only call this API against:
+  - Your own Stripe/Braintree/PPCP accounts.
+  - Cards/accounts you are allowed to use for testing.
+- Optionally implement **auto-refund/void** inside the handlers once you’re comfortable with the flows.
+- Protect the API:
+  - Keep `LIVE_TEST_KEY` secret.
+  - Restrict access by IP / VPN / firewall if possible.
