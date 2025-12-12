@@ -575,7 +575,7 @@ def configureServer():
             print(f"{Colors.GREEN}[+] SERVER SET{Colors.RESET}")
         time.sleep(1)
     elif choice == '2':
-        config['api_base'] = "https://api.isnotsin.com"
+        config['api_base'] = "https://api.yourdomain.tld"
         saveConfig(config)
         print(f"{Colors.GREEN}[+] SERVER RESET{Colors.RESET}")
         time.sleep(1)
