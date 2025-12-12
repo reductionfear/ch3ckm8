@@ -15,6 +15,7 @@ SITES_DIR = "sites"
 RESULTS_DIR = "results"
 DEFAULT_THREADS = 5
 VERSION = "v0.2"
+DEFAULT_API_BASE = "http://localhost:8000"  # Self-hosted API base (can be changed via Configure Server)
 
 # Gateway lists
 SANDBOX_GATEWAYS = ['stripe', 'stripe_charge', 'ppcp', 'b3', 'b3charge']
@@ -79,7 +80,7 @@ def loadConfig():
             pass
     return {
         "api_key": "",
-        "api_base": "https://api.yourdomain.tld",  # Self-hosted API base (can be changed via Configure Server)
+        "api_base": DEFAULT_API_BASE,
         "bot_token": "",
         "chat_id": "",
         "proxy": "",
@@ -582,7 +583,7 @@ def configureServer():
             print(f"{Colors.GREEN}[+] SERVER SET{Colors.RESET}")
         time.sleep(1)
     elif choice == '2':
-        config['api_base'] = "https://api.yourdomain.tld"
+        config['api_base'] = DEFAULT_API_BASE
         saveConfig(config)
         print(f"{Colors.GREEN}[+] SERVER RESET{Colors.RESET}")
         time.sleep(1)

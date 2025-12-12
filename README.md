@@ -43,7 +43,7 @@ When you select a Live Test gateway, the checker will display a confirmation pro
 TYPE 'LIVE' TO CONFIRM: 
 ```
 
-- Type `LIVE` (in uppercase) to proceed with the live test
+- Type `LIVE` (case-insensitive: 'live', 'Live', 'LIVE' all work) to proceed with the live test
 - Any other input will cancel the operation and return to the main menu
 
 ### Built-in Site Codes
@@ -67,10 +67,10 @@ Live Test Mode requires a self-hosted FastAPI server implementing the live test 
 
 ```
 Main Menu > [3] CONFIGURE SERVER
-Enter API base URL: https://api.yourdomain.tld
+Enter API base URL: http://localhost:8000
 ```
 
-The default configuration now points to `https://api.yourdomain.tld` instead of the isnotsin API. You can change this to your own server that implements:
+The default configuration points to `http://localhost:8000` for local development. You can change this to your own server that implements:
 
 - `GET /stripe_live_test` - Stripe auth live test
 - `GET /stripe_charge_live_test` - Stripe charge live test  
@@ -385,7 +385,7 @@ INVALID/ERROR: 4
 ```json
 {
   "api_key": "ABC123",
-  "api_base": "https://api.yourdomain.tld",
+  "api_base": "http://localhost:8000",
   "bot_token": "",
   "chat_id": "",
   "proxy": "",
@@ -400,10 +400,10 @@ Configure your self-hosted API server or use a private API instance:
 ```
 Main Menu > [3] CONFIGURE SERVER
 Enter your custom API base URL
-Example: https://api.yourdomain.tld or https://your-private-api.com
+Example: http://localhost:8000 or https://your-api-server.com
 ```
 
-The default API base is now `https://api.yourdomain.tld` which should be changed to point to your self-hosted FastAPI server (especially for Live Test Mode).
+The default API base is `http://localhost:8000` which should be changed to point to your self-hosted FastAPI server implementing the live test endpoints.
 
 ---
 
