@@ -16,6 +16,11 @@ RESULTS_DIR = "results"
 DEFAULT_THREADS = 5
 VERSION = "v0.2"
 
+# Gateway lists
+SANDBOX_GATEWAYS = ['stripe', 'stripe_charge', 'ppcp', 'b3', 'b3charge']
+LIVE_GATEWAYS = ['stripe_live_test', 'stripe_charge_live_test', 'ppcp_live_test', 'b3_live_test']
+ALL_GATEWAYS = SANDBOX_GATEWAYS + LIVE_GATEWAYS
+
 checkStats = {
     'total': 0,
     'checked': 0,
@@ -45,8 +50,7 @@ def initDirectories():
     os.makedirs(SITES_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR, exist_ok=True)
     
-    for gateway in ['stripe', 'stripe_charge', 'ppcp', 'b3', 'b3charge', 
-                     'stripe_live_test', 'stripe_charge_live_test', 'ppcp_live_test', 'b3_live_test']:
+    for gateway in ALL_GATEWAYS:
         filepath = os.path.join(SITES_DIR, f"{gateway}.txt")
         if not os.path.exists(filepath):
             with open(filepath, 'w') as f:
@@ -392,6 +396,9 @@ def configureSites():
     print()
     
     choice = input(f"{Colors.WHITE}CHOOSE: {Colors.RESET}").strip()
+    
+    if choice == '0':
+        return
     
     gateway_map = {
         '1': 'stripe',
@@ -822,14 +829,7 @@ def startChecker():
         return
     
     # Live gateway confirmation
-    live_gateways = {
-        'stripe_live_test',
-        'stripe_charge_live_test',
-        'ppcp_live_test',
-        'b3_live_test'
-    }
-    
-    if gateway in live_gateways:
+    if gateway in LIVE_GATEWAYS:
         clearScreen()
         printBanner()
         print(f"{Colors.ORANGE}[!] YOU SELECTED A LIVE TEST GATEWAY{Colors.RESET}")

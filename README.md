@@ -43,7 +43,7 @@ When you select a Live Test gateway, the checker will display a confirmation pro
 TYPE 'LIVE' TO CONFIRM: 
 ```
 
-- Type `LIVE` (case-insensitive) to proceed with the live test
+- Type `LIVE` (in uppercase) to proceed with the live test
 - Any other input will cancel the operation and return to the main menu
 
 ### Built-in Site Codes
