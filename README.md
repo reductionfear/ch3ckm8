@@ -10,6 +10,135 @@ A powerful multi-gateway card checker with built-in sites and custom site suppor
 
 ---
 
+## LIVE TEST MODE
+
+**⚠️ WARNING: LIVE TEST MODE PERFORMS REAL TRANSACTIONS ⚠️**
+
+Live Test Mode allows you to test payment gateway integrations using **real transactions** against your own Stripe, Braintree, or PayPal Commerce Platform accounts. This mode is designed for testing purposes with:
+
+- **Real card charges** (use low amounts like $1.00)
+- **Your own merchant accounts only**
+- **Auto-void/refund capabilities** (if implemented on your API server)
+- **Careful usage required** to avoid unintended charges
+
+### Live Test Gateway Options
+
+The checker now includes four Live Test gateways accessible through the gateway selection menu:
+
+| Menu Option                          | Logical Gateway            | API Endpoint                    | Description                           |
+|--------------------------------------|----------------------------|---------------------------------|---------------------------------------|
+| `[6] STRIPE AUTH (LIVE TEST)`       | `stripe_live_test`         | `GET /stripe_live_test`         | Stripe auth with real transactions    |
+| `[7] STRIPE CHARGE (LIVE TEST)`     | `stripe_charge_live_test`  | `GET /stripe_charge_live_test`  | Stripe charge with real transactions  |
+| `[8] PPCP LIVE TEST`                | `ppcp_live_test`           | `GET /ppcp_live_test`           | PayPal Commerce Platform live test    |
+| `[9] B3 LIVE TEST`                  | `b3_live_test`             | `GET /b3_live_test`             | Braintree live test                   |
+
+### Confirmation Flow
+
+When you select a Live Test gateway, the checker will display a confirmation prompt to prevent accidental real transactions:
+
+```
+[!] YOU SELECTED A LIVE TEST GATEWAY
+[!] REAL TRANSACTIONS WILL BE ATTEMPTED (WITH AUTO-VOID/REFUND IF IMPLEMENTED)
+
+TYPE 'LIVE' TO CONFIRM: 
+```
+
+- Type `LIVE` (case-insensitive: 'live', 'Live', 'LIVE' all work) to proceed with the live test
+- Any other input will cancel the operation and return to the main menu
+
+### Built-in Site Codes
+
+Live Test gateways use separate built-in site codes to maintain different rotation pools from sandbox/test environments:
+
+| Code              | Gateway(s)                          | Description                             |
+|-------------------|-------------------------------------|-----------------------------------------|
+| `SIN-STRIPE`      | Stripe Auth/Charge (sandbox/test)   | Test Stripe rotations                   |
+| `SIN-STRIPE-LIVE` | Stripe Auth/Charge (Live Test)      | Live Stripe test sites                  |
+| `SIN-PPCP`        | PPCP (sandbox/test)                 | Test PPCP rotations                     |
+| `SIN-PPCP-LIVE`   | PPCP (Live Test)                    | Live PPCP test sites                    |
+| `SIN-B3`          | B3 Auth/Charge (sandbox/test)       | Test Braintree rotations                |
+| `SIN-B3-LIVE`     | B3 (Live Test)                      | Live Braintree test sites               |
+
+These codes are automatically used when selecting "Built-in Sites" mode for the respective gateway.
+
+### API Server Configuration
+
+Live Test Mode requires a self-hosted FastAPI server implementing the live test endpoints. Configure your API server:
+
+```
+Main Menu > [3] CONFIGURE SERVER
+Enter API base URL: http://localhost:8000
+```
+
+The default configuration points to `http://localhost:8000` for local development. You can change this to your own server that implements:
+
+- `GET /stripe_live_test` - Stripe auth live test
+- `GET /stripe_charge_live_test` - Stripe charge live test  
+- `GET /ppcp_live_test` - PPCP live test
+- `GET /b3_live_test` - Braintree live test
+
+### Example Live Test Response
+
+When a live test succeeds, you'll see responses like:
+
+```
+09:12:22 : [S] 4532xxxxxxxx0366|12|25|123 | CHARGED - PAYMENT SUCCESS | 203.0.113.45 | STRIPE_CHARGE_LIVE_TEST | SIN-STRIPE-LIVE
+```
+
+Response JSON structure from the API:
+```json
+{
+  "status": "CHARGED",
+  "code": "charged",
+  "message": "Payment successful",
+  "receipt_url": "https://dashboard.stripe.com/receipts/...",
+  "vbv_status": null,
+  "bin_info": null,
+  "site_info": {
+    "site": "SIN-STRIPE-LIVE",
+    "proxy_ip": "203.0.113.45",
+    "product_id": "prod_test123",
+    "charged_amount": "1.00 USD",
+    "currency": "USD"
+  }
+}
+```
+
+### Best Practices for Live Testing
+
+1. **Use Low Amounts**: Test with $1.00 or less to minimize costs
+2. **Own Accounts Only**: Never test against merchant accounts you don't own
+3. **Implement Auto-Refund**: Your API server should automatically void/refund test charges
+4. **Monitor Closely**: Watch for unexpected charges and refund immediately
+5. **Test Cards**: Use test cards when possible; live mode should be for integration validation only
+6. **Custom Sites**: Add only your own sites to the custom site lists for live gateways
+
+### Security Considerations
+
+- **API Key Security**: Keep your API key secure - it controls access to live transactions
+- **Proxy Usage**: Consider using proxies to protect your testing infrastructure
+- **Rate Limiting**: Implement rate limits on your API server to prevent abuse
+- **Logging**: Ensure proper logging of all live transactions for audit purposes
+- **Refund Policy**: Implement automatic refunds within your API server for all test transactions
+
+### Site File Management
+
+Each live gateway maintains its own custom site file:
+
+- `sites/stripe_live_test.txt` - Custom sites for Stripe Auth Live Test
+- `sites/stripe_charge_live_test.txt` - Custom sites for Stripe Charge Live Test
+- `sites/ppcp_live_test.txt` - Custom sites for PPCP Live Test
+- `sites/b3_live_test.txt` - Custom sites for B3 Live Test
+
+Add sites via:
+```
+Main Menu > [4] CONFIGURE SITES
+Select the appropriate live test gateway
+Add sites manually or from a file
+```
+
+---
+
 ## FEATURES
 
 ### Multi-Gateway Support
@@ -256,7 +385,7 @@ INVALID/ERROR: 4
 ```json
 {
   "api_key": "ABC123",
-  "api_base": "https://api.isnotsin.com",
+  "api_base": "http://localhost:8000",
   "bot_token": "",
   "chat_id": "",
   "proxy": "",
@@ -267,12 +396,14 @@ INVALID/ERROR: 4
 Configuration is stored in `checker_config.json` and persists between sessions.
 
 ### Custom Server
-If you have a private API instance:
+Configure your self-hosted API server or use a private API instance:
 ```
 Main Menu > [3] CONFIGURE SERVER
 Enter your custom API base URL
-Example: https://your-private-api.com
+Example: http://localhost:8000 or https://your-api-server.com
 ```
+
+The default API base is `http://localhost:8000` which should be changed to point to your self-hosted FastAPI server implementing the live test endpoints.
 
 ---
 

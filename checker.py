@@ -15,6 +15,12 @@ SITES_DIR = "sites"
 RESULTS_DIR = "results"
 DEFAULT_THREADS = 5
 VERSION = "v0.2"
+DEFAULT_API_BASE = "http://localhost:8000"  # Self-hosted API base (can be changed via Configure Server)
+
+# Gateway lists
+SANDBOX_GATEWAYS = ['stripe', 'stripe_charge', 'ppcp', 'b3', 'b3charge']
+LIVE_GATEWAYS = ['stripe_live_test', 'stripe_charge_live_test', 'ppcp_live_test', 'b3_live_test']
+ALL_GATEWAYS = SANDBOX_GATEWAYS + LIVE_GATEWAYS
 
 checkStats = {
     'total': 0,
@@ -45,7 +51,7 @@ def initDirectories():
     os.makedirs(SITES_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR, exist_ok=True)
     
-    for gateway in ['stripe', 'stripe_charge', 'ppcp', 'b3', 'b3charge']:
+    for gateway in ALL_GATEWAYS:
         filepath = os.path.join(SITES_DIR, f"{gateway}.txt")
         if not os.path.exists(filepath):
             with open(filepath, 'w') as f:
@@ -74,7 +80,7 @@ def loadConfig():
             pass
     return {
         "api_key": "",
-        "api_base": "https://api.isnotsin.com",
+        "api_base": DEFAULT_API_BASE,
         "bot_token": "",
         "chat_id": "",
         "proxy": "",
@@ -375,22 +381,36 @@ def configureSites():
     clearScreen()
     printBanner()
     print(f"{Colors.CYAN}SELECT GATEWAY TO CONFIGURE:{Colors.RESET}\n")
-    print(f"{Colors.WHITE}[1]{Colors.RESET} STRIPE AUTH")
-    print(f"{Colors.WHITE}[2]{Colors.RESET} STRIPE CHARGE")
-    print(f"{Colors.WHITE}[3]{Colors.RESET} PPCP")
-    print(f"{Colors.WHITE}[4]{Colors.RESET} B3 AUTH")
-    print(f"{Colors.WHITE}[5]{Colors.RESET} B3 CHARGE")
-    print(f"{Colors.WHITE}[6]{Colors.RESET} BACK")
+    print(f"{Colors.WHITE}[1]{Colors.RESET} STRIPE AUTH (SANDBOX/TEST)")
+    print(f"{Colors.WHITE}[2]{Colors.RESET} STRIPE CHARGE (SANDBOX/TEST)")
+    print(f"{Colors.WHITE}[3]{Colors.RESET} PPCP (SANDBOX/TEST)")
+    print(f"{Colors.WHITE}[4]{Colors.RESET} B3 AUTH (SANDBOX/TEST)")
+    print(f"{Colors.WHITE}[5]{Colors.RESET} B3 CHARGE (SANDBOX/TEST)")
+    print()
+    print(f"{Colors.ORANGE}LIVE TEST GATEWAYS:{Colors.RESET}")
+    print(f"{Colors.WHITE}[6]{Colors.RESET} STRIPE AUTH (LIVE TEST)")
+    print(f"{Colors.WHITE}[7]{Colors.RESET} STRIPE CHARGE (LIVE TEST)")
+    print(f"{Colors.WHITE}[8]{Colors.RESET} PPCP LIVE TEST")
+    print(f"{Colors.WHITE}[9]{Colors.RESET} B3 LIVE TEST")
+    print()
+    print(f"{Colors.WHITE}[0]{Colors.RESET} BACK")
     print()
     
     choice = input(f"{Colors.WHITE}CHOOSE: {Colors.RESET}").strip()
+    
+    if choice == '0':
+        return
     
     gateway_map = {
         '1': 'stripe',
         '2': 'stripe_charge',
         '3': 'ppcp',
         '4': 'b3',
-        '5': 'b3charge'
+        '5': 'b3charge',
+        '6': 'stripe_live_test',
+        '7': 'stripe_charge_live_test',
+        '8': 'ppcp_live_test',
+        '9': 'b3_live_test'
     }
     gateway = gateway_map.get(choice)
     
@@ -563,7 +583,7 @@ def configureServer():
             print(f"{Colors.GREEN}[+] SERVER SET{Colors.RESET}")
         time.sleep(1)
     elif choice == '2':
-        config['api_base'] = "https://api.isnotsin.com"
+        config['api_base'] = DEFAULT_API_BASE
         saveConfig(config)
         print(f"{Colors.GREEN}[+] SERVER RESET{Colors.RESET}")
         time.sleep(1)
@@ -720,11 +740,17 @@ def selectGateway():
     clearScreen()
     printBanner()
     print(f"{Colors.CYAN}SELECT GATEWAY:{Colors.RESET}\n")
-    print(f"{Colors.WHITE}[1]{Colors.RESET} STRIPE AUTH")
-    print(f"{Colors.WHITE}[2]{Colors.RESET} STRIPE CHARGE")
-    print(f"{Colors.WHITE}[3]{Colors.RESET} PPCP")
-    print(f"{Colors.WHITE}[4]{Colors.RESET} B3 AUTH")
-    print(f"{Colors.WHITE}[5]{Colors.RESET} B3 CHARGE")
+    print(f"{Colors.WHITE}[1]{Colors.RESET} STRIPE AUTH (SANDBOX/TEST)")
+    print(f"{Colors.WHITE}[2]{Colors.RESET} STRIPE CHARGE (SANDBOX/TEST)")
+    print(f"{Colors.WHITE}[3]{Colors.RESET} PPCP (SANDBOX/TEST)")
+    print(f"{Colors.WHITE}[4]{Colors.RESET} B3 AUTH (SANDBOX/TEST)")
+    print(f"{Colors.WHITE}[5]{Colors.RESET} B3 CHARGE (SANDBOX/TEST)")
+    print()
+    print(f"{Colors.ORANGE}LIVE TEST GATEWAYS:{Colors.RESET}")
+    print(f"{Colors.WHITE}[6]{Colors.RESET} STRIPE AUTH (LIVE TEST)    {Colors.ORANGE}(REAL TRANSACTIONS!){Colors.RESET}")
+    print(f"{Colors.WHITE}[7]{Colors.RESET} STRIPE CHARGE (LIVE TEST)  {Colors.ORANGE}(REAL TRANSACTIONS!){Colors.RESET}")
+    print(f"{Colors.WHITE}[8]{Colors.RESET} PPCP LIVE TEST             {Colors.ORANGE}(REAL TRANSACTIONS!){Colors.RESET}")
+    print(f"{Colors.WHITE}[9]{Colors.RESET} B3 LIVE TEST               {Colors.ORANGE}(REAL TRANSACTIONS!){Colors.RESET}")
     print()
     
     choice = input(f"{Colors.WHITE}CHOOSE: {Colors.RESET}").strip()
@@ -734,7 +760,11 @@ def selectGateway():
         '2': 'stripe_charge',
         '3': 'ppcp',
         '4': 'b3',
-        '5': 'b3charge'
+        '5': 'b3charge',
+        '6': 'stripe_live_test',
+        '7': 'stripe_charge_live_test',
+        '8': 'ppcp_live_test',
+        '9': 'b3_live_test'
     }
     
     return gateway_map.get(choice)
@@ -748,9 +778,13 @@ def selectSiteMode(gateway):
     base_gateway_map = {
         'stripe': 'STRIPE',
         'stripe_charge': 'STRIPE',
+        'stripe_live_test': 'STRIPE-LIVE',
+        'stripe_charge_live_test': 'STRIPE-LIVE',
         'ppcp': 'PPCP',
+        'ppcp_live_test': 'PPCP-LIVE',
         'b3': 'B3',
-        'b3charge': 'B3'
+        'b3charge': 'B3',
+        'b3_live_test': 'B3-LIVE'
     }
     builtin_base = base_gateway_map.get(gateway, gateway.upper())
     builtin_key = f"SIN-{builtin_base}"
@@ -794,6 +828,19 @@ def startChecker():
         print(f"{Colors.RED}[-] INVALID GATEWAY{Colors.RESET}")
         time.sleep(2)
         return
+    
+    # Live gateway confirmation
+    if gateway in LIVE_GATEWAYS:
+        clearScreen()
+        printBanner()
+        print(f"{Colors.ORANGE}[!] YOU SELECTED A LIVE TEST GATEWAY{Colors.RESET}")
+        print(f"{Colors.ORANGE}[!] REAL TRANSACTIONS WILL BE ATTEMPTED (WITH AUTO-VOID/REFUND IF IMPLEMENTED){Colors.RESET}")
+        print()
+        confirm = input(f"{Colors.WHITE}TYPE 'LIVE' TO CONFIRM: {Colors.RESET}").strip().upper()
+        if confirm != 'LIVE':
+            print(f"{Colors.RED}[-] LIVE TEST CANCELED{Colors.RESET}")
+            time.sleep(2)
+            return
     
     selectedSite, siteLabel = selectSiteMode(gateway)
     
